@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>winUbu — passerelle de fichiers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="hero">
+    <p class="eyebrow">stockage éphémère · 7 jours</p>
+    <h1>Dépose ici.<br>Récupère ailleurs.</h1>
+    <p class="sub">winUbu transporte vos fichiers et dossiers d'un système à l'autre — Windows, Ubuntu, peu importe le navigateur.</p>
+  </header>
+
+  <section class="bridge">
+    <div class="node node-win">
+      <div class="node-chrome">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="node-label">Windows</div>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-inner">
+        <p class="drop-title">Glissez vos fichiers ou un dossier ici</p>
+        <p class="drop-sub">ou</p>
+        <button id="browseBtn" class="btn">Parcourir des fichiers</button>
+        <button id="browseFolderBtn" class="btn btn-ghost">Parcourir un dossier</button>
+        <input type="file" id="fileInput" multiple hidden>
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+      </div>
+      <p id="status" class="status"></p>
+    </div>
+
+    <div class="node node-ubu">
+      <div class="node-chrome term">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="node-label">Ubuntu</div>
+    </div>
+  </section>
+
+  <section class="manifest">
+    <div class="manifest-head">
+      <h2>manifeste</h2>
+      <span class="manifest-count" id="fileCount">0 fichier</span>
+    </div>
+    <div class="manifest-table" id="fileList">
+      <p class="empty">Aucun fichier pour l'instant.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>winUbu — les fichiers expirent automatiquement après 7 jours.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
