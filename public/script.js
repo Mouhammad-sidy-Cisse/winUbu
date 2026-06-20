@@ -76,9 +76,25 @@ async function loadFiles() {
   fileList.innerHTML = files.map(f => `
     <div class="file-row">
       <a href="/download/${f.id}">${f.name}</a>
-      <span class="file-meta">${formatExpiry(f.expiresAt)}</span>
+      <div class="file-actions">
+        <span class="file-meta">${formatExpiry(f.expiresAt)}</span>
+        <button class="copy-btn" data-id="${f.id}">Copier le lien</button>
+      </div>
     </div>
   `).join('');
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => copyLink(btn.dataset.id, btn));
+  });
+}
+
+function copyLink(id, btn) {
+  const url = `${window.location.origin}/download/${id}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const original = btn.textContent;
+    btn.textContent = '✓ copié';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
 }
 
 loadFiles();
