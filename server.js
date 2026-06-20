@@ -1,10 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
 
 const app = express();
+app.set('trust proxy', 1); // nécessaire derrière le proxy de Render pour les cookies secure
+
 const PORT = process.env.PORT || 3000;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const DATA_DIR = path.join(__dirname, 'data');
@@ -26,15 +31,50 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
     const id = crypto.randomBytes(8).toString('hex');
-    // remplace les / du chemin relatif (dossier) par __ pour garder une trace
     const safeName = file.originalname.replace(/\//g, '__');
     cb(null, `${id}___${safeName}`);
   }
 });
 const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } });
 
-app.use(express.static('public'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 4 // session admin valable 4h
+  }
+}));
+
+// Limite basique anti force-brute sur le login
+const loginAttempts = {};
+function tooManyAttempts(ip) {
+  const entry = loginAttempts[ip];
+  if (!entry) return false;
+  if (entry.count >= 5 && Date.now() - entry.lastAttempt < 10 * 60 * 1000) return true;
+  return false;
+}
+function registerFailedAttempt(ip) {
+  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lastAttempt: 0 };
+  loginAttempts[ip].count++;
+  loginAttempts[ip].lastAttempt = Date.now();
+}
+function resetAttempts(ip) {
+  delete loginAttempts[ip];
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin) return next();
+  return res.status(401).json({ error: 'Non autorisé' });
+}
+
+// --- ROUTES PUBLIQUES (site normal) ---
+app.use(express.static('public'));
 
 app.post('/upload', upload.array('files'), (req, res) => {
   const meta = loadMeta();
@@ -56,11 +96,7 @@ app.get('/files', (req, res) => {
   const now = Date.now();
   const list = Object.entries(meta)
     .filter(([id, info]) => info.expiresAt > now)
-    .map(([id, info]) => ({
-      id,
-      name: info.originalName,
-      expiresAt: info.expiresAt
-    }));
+    .map(([id, info]) => ({ id, name: info.originalName, expiresAt: info.expiresAt }));
   res.json(list);
 });
 
@@ -73,6 +109,63 @@ app.get('/download/:id', (req, res) => {
   res.download(filePath, info.originalName);
 });
 
+// --- ROUTES ADMIN ---
+app.post('/admin/login', async (req, res) => {
+  const ip = req.ip;
+  if (tooManyAttempts(ip)) {
+    return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans 10 minutes.' });
+  }
+
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Identifiants manquants.' });
+  }
+
+  const validUser = username === process.env.ADMIN_USER;
+  const validPass = validUser && await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+
+  if (!validUser || !validPass) {
+    registerFailedAttempt(ip);
+    return res.status(401).json({ error: 'Identifiants incorrects.' });
+  }
+
+  resetAttempts(ip);
+  req.session.isAdmin = true;
+  res.json({ success: true });
+});
+
+app.post('/admin/logout', (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+app.get('/admin/check', (req, res) => {
+  res.json({ isAdmin: !!(req.session && req.session.isAdmin) });
+});
+
+app.get('/admin/files', requireAdmin, (req, res) => {
+  const meta = loadMeta();
+  const list = Object.entries(meta).map(([id, info]) => ({
+    id,
+    name: info.originalName,
+    uploadedAt: info.uploadedAt,
+    expiresAt: info.expiresAt
+  }));
+  res.json(list);
+});
+
+app.delete('/admin/files/:id', requireAdmin, (req, res) => {
+  const meta = loadMeta();
+  const info = meta[req.params.id];
+  if (!info) return res.status(404).json({ error: 'Fichier introuvable.' });
+
+  const filePath = path.join(UPLOAD_DIR, req.params.id);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  delete meta[req.params.id];
+  saveMeta(meta);
+  res.json({ success: true });
+});
+
+// --- NETTOYAGE AUTOMATIQUE ---
 function cleanup() {
   const meta = loadMeta();
   const now = Date.now();
