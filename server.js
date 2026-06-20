@@ -123,6 +123,7 @@ app.post('/admin/login', async (req, res) => {
   console.log('Match username:', username === process.env.ADMIN_USER);
   console.log('Password reçu (longueur):', password ? password.length : 'vide');
   console.log('ADMIN_PASSWORD_HASH présent ?', !!process.env.ADMIN_PASSWORD_HASH);
+  console.log('ADMIN_PASSWORD_HASH valeur:', process.env.ADMIN_PASSWORD_HASH);
   // --- FIN DEBUG ---
 
   if (!username || !password) {
