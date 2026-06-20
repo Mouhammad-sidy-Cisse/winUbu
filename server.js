@@ -42,7 +42,6 @@ async function initDb() {
     );
   `);
 }
-initDb().catch(err => console.error('Erreur init DB:', err));
 
 // --- Multer + Cloudinary storage ---
 const storage = new CloudinaryStorage({
@@ -207,7 +206,16 @@ async function cleanup() {
     await pool.query('DELETE FROM files WHERE expires_at <= $1', [now]);
   }
 }
-setInterval(cleanup, 60 * 60 * 1000);
-cleanup().catch(err => console.error('Erreur cleanup initial:', err));
 
-app.listen(PORT, () => console.log(`winUbu lancé sur http://localhost:${PORT}`));
+// --- DÉMARRAGE ---
+async function start() {
+  await initDb();
+  setInterval(cleanup, 60 * 60 * 1000);
+  await cleanup();
+  app.listen(PORT, () => console.log(`winUbu lancé sur http://localhost:${PORT}`));
+}
+
+start().catch(err => {
+  console.error('Erreur au démarrage:', err);
+  process.exit(1);
+});
