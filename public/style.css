@@ -25,6 +25,12 @@ body {
 
 h1, h2 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
 
+.logo {
+  height: 48px;
+  width: auto;
+  margin-bottom: 20px;
+}
+
 .hero {
   max-width: 720px;
   margin: 0 auto;
