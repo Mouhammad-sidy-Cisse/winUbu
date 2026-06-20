@@ -15,20 +15,17 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-// --- Cloudinary config ---
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// --- PostgreSQL config ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Crée la table si elle n'existe pas
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS files (
@@ -37,13 +34,15 @@ async function initDb() {
       url TEXT NOT NULL,
       cloudinary_public_id TEXT NOT NULL,
       resource_type TEXT NOT NULL,
+      mimetype TEXT NOT NULL DEFAULT 'application/octet-stream',
       uploaded_at BIGINT NOT NULL,
       expires_at BIGINT NOT NULL
     );
   `);
+  // Au cas où la table existait déjà sans la colonne mimetype
+  await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS mimetype TEXT NOT NULL DEFAULT 'application/octet-stream';`);
 }
 
-// --- Multer + Cloudinary storage ---
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -97,11 +96,11 @@ app.post('/upload', upload.array('files'), async (req, res) => {
   const results = [];
 
   for (const f of req.files) {
-    const id = f.filename; // public_id généré par CloudinaryStorage
+    const id = f.filename;
     await pool.query(
-      `INSERT INTO files (id, original_name, url, cloudinary_public_id, resource_type, uploaded_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, f.originalname, f.path, f.filename, f.resource_type || 'raw', now, now + EXPIRY_MS]
+      `INSERT INTO files (id, original_name, url, cloudinary_public_id, resource_type, mimetype, uploaded_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, f.originalname, f.path, f.filename, f.resource_type || 'raw', f.mimetype, now, now + EXPIRY_MS]
     );
     results.push({ id, name: f.originalname, url: f.path });
   }
@@ -113,19 +112,22 @@ app.post('/upload', upload.array('files'), async (req, res) => {
 app.get('/files', async (req, res) => {
   const now = Date.now();
   const result = await pool.query(
-    'SELECT id, original_name AS name, expires_at AS "expiresAt" FROM files WHERE expires_at > $1',
+    `SELECT id, original_name AS name, url, mimetype, expires_at AS "expiresAt"
+     FROM files WHERE expires_at > $1 ORDER BY uploaded_at DESC`,
     [now]
   );
   res.json(result.rows);
 });
 
-// --- TELECHARGEMENT (redirige vers l'URL Cloudinary) ---
+// --- TELECHARGEMENT FORCÉ (redirige vers Cloudinary avec fl_attachment) ---
 app.get('/download/:id', async (req, res) => {
   const result = await pool.query('SELECT * FROM files WHERE id = $1', [req.params.id]);
   const info = result.rows[0];
   if (!info) return res.status(404).send('Fichier introuvable ou expiré.');
   if (info.expires_at <= Date.now()) return res.status(404).send('Fichier expiré.');
-  res.redirect(info.url);
+
+  const downloadUrl = info.url.replace('/upload/', '/upload/fl_attachment/');
+  res.redirect(downloadUrl);
 });
 
 // --- ROUTES ADMIN ---
@@ -207,7 +209,6 @@ async function cleanup() {
   }
 }
 
-// --- DÉMARRAGE ---
 async function start() {
   await initDb();
   setInterval(cleanup, 60 * 60 * 1000);

@@ -29,7 +29,7 @@ html, body {
 
 h1, h2 { font-family: 'Source Serif 4', serif; margin: 0; color: var(--green-deep); }
 
-/* Logo en filigrane plein ecran, fixe, derriere tout le contenu */
+/* Logo en filigrane */
 .bg-logo {
   position: fixed;
   inset: 0;
@@ -51,6 +51,8 @@ h1, h2 { font-family: 'Source Serif 4', serif; margin: 0; color: var(--green-dee
 .rule-top {
   height: 4px;
   background: linear-gradient(90deg, var(--green-deep) 0%, var(--green-deep) 70%, var(--gold) 70%, var(--gold) 100%);
+  position: relative;
+  z-index: 2;
 }
 
 /* Header */
@@ -184,6 +186,8 @@ h1, h2 { font-family: 'Source Serif 4', serif; margin: 0; color: var(--green-dee
   border-radius: 999px;
   cursor: pointer;
   transition: transform .15s, opacity .15s, background .2s;
+  text-decoration: none;
+  display: inline-block;
 }
 .btn:hover { background: var(--green-mid); transform: translateY(-1px); }
 .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
@@ -243,15 +247,14 @@ h1, h2 { font-family: 'Source Serif 4', serif; margin: 0; color: var(--green-dee
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
-.file-row a {
+.file-name {
   color: var(--ink);
-  text-decoration: none;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13.5px;
   word-break: break-all;
 }
-.file-row a:hover { color: var(--green-deep); }
 .file-meta {
   flex-shrink: 0;
   font-family: 'IBM Plex Mono', monospace;
@@ -262,7 +265,8 @@ h1, h2 { font-family: 'Source Serif 4', serif; margin: 0; color: var(--green-dee
 .file-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .copy-btn {
   font-family: 'IBM Plex Mono', monospace;
@@ -351,4 +355,77 @@ footer {
   padding-bottom: 40px;
   border-top: 1px solid var(--border);
   padding-top: 24px;
+}
+
+/* Modale */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 77, 50, 0.55);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #fff;
+  border-radius: var(--radius);
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 32px 24px 24px;
+}
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.modal-close:hover { color: var(--green-deep); }
+.modal-content { text-align: center; }
+.modal-content img,
+.modal-content video {
+  max-width: 100%;
+  max-height: 50vh;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+.modal-content iframe {
+  width: 100%;
+  height: 50vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+.modal-filename {
+  font-weight: 600;
+  margin-bottom: 16px;
+  word-break: break-all;
+}
+.modal-noPreview {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.qr-img {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  background: #fff;
 }
