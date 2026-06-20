@@ -8,13 +8,13 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 
 const app = express();
-app.set('trust proxy', 1); // nécessaire derrière le proxy de Render pour les cookies secure
+app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const DATA_DIR = path.join(__dirname, 'data');
 const META_FILE = path.join(DATA_DIR, 'meta.json');
-const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 1 semaine
+const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
@@ -47,11 +47,10 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 4 // session admin valable 4h
+    maxAge: 1000 * 60 * 60 * 4
   }
 }));
 
-// Limite basique anti force-brute sur le login
 const loginAttempts = {};
 function tooManyAttempts(ip) {
   const entry = loginAttempts[ip];
@@ -73,7 +72,6 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ error: 'Non autorisé' });
 }
 
-// --- ROUTES PUBLIQUES (site normal) ---
 app.use(express.static('public'));
 
 app.post('/upload', upload.array('files'), (req, res) => {
@@ -117,12 +115,24 @@ app.post('/admin/login', async (req, res) => {
   }
 
   const { username, password } = req.body;
+
+  // --- DEBUG TEMPORAIRE : a retirer une fois le bug trouve ---
+  console.log('--- TENTATIVE DE LOGIN ---');
+  console.log('Username reçu:', JSON.stringify(username));
+  console.log('ADMIN_USER attendu:', JSON.stringify(process.env.ADMIN_USER));
+  console.log('Match username:', username === process.env.ADMIN_USER);
+  console.log('Password reçu (longueur):', password ? password.length : 'vide');
+  console.log('ADMIN_PASSWORD_HASH présent ?', !!process.env.ADMIN_PASSWORD_HASH);
+  // --- FIN DEBUG ---
+
   if (!username || !password) {
     return res.status(400).json({ error: 'Identifiants manquants.' });
   }
 
   const validUser = username === process.env.ADMIN_USER;
   const validPass = validUser && await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+
+  console.log('validUser:', validUser, '| validPass:', validPass);
 
   if (!validUser || !validPass) {
     registerFailedAttempt(ip);
@@ -165,7 +175,6 @@ app.delete('/admin/files/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// --- NETTOYAGE AUTOMATIQUE ---
 function cleanup() {
   const meta = loadMeta();
   const now = Date.now();
